@@ -1,0 +1,620 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Coin Rush</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=TikTok+Sans:wght@400;700;900&display=swap">
+<style>
+  :root {
+    --accent: #FE2C55;
+    --cyan: #25F4EE;
+    --ink: #161823;
+    --muted: #6F7079;
+    --line: #E3E3E4;
+    --ground: #F8F8F8;
+    --glitch: -3px -2px 0 var(--cyan), 3px 2px 0 var(--accent);
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: var(--ground); overflow: hidden; }
+  body { font-family: 'TikTok Sans', Inter, system-ui, sans-serif; color: var(--ink); -webkit-tap-highlight-color: transparent; }
+  button { font-family: inherit; cursor: pointer; }
+
+  /* Full-screen, frameless: the 834×1194 stage is scaled to fit any tablet screen */
+  #app { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; background: var(--ground); }
+  #stage {
+    width: 834px; height: 1194px; position: relative; overflow: hidden; flex: none;
+    background: var(--ground); transform-origin: center center;
+    touch-action: none; user-select: none; -webkit-user-select: none;
+  }
+  .abs { position: absolute; left: 0; top: 0; }
+  .hidden { display: none !important; }
+
+  /* Coin (custom image) */
+  .coin { border-radius: 50%; display: flex; align-items: center; justify-content: center;
+    background: url('https://cdn.imagetourls.com/uploads/tyImg/PHwx455h.png') center/contain no-repeat !important; border: none !important; box-shadow: none !important; }
+  .coin .ring { display: none !important; }
+  .mini-coin { border-radius: 50%; background: url('https://cdn.imagetourls.com/uploads/tyImg/PHwx455h.png') center/contain no-repeat !important; border: none !important; box-shadow: none !important; }
+  .flip { animation: cflip 1s linear infinite; }
+
+  .block { width: 226px; height: 108px; position: relative; border-radius: 16px; background: var(--ink); overflow: hidden; box-shadow: 0 9px 0 rgba(22,24,35,.18); }
+  .block::after { content: ""; position: absolute; left: 0; top: 16px; width: 100%; height: 44px;
+    background: repeating-linear-gradient(135deg, var(--accent) 0 20px, #fff 20px 40px); }
+
+  .dash { width: 9px; height: 74px; border-radius: 5px; background: #DADADD; will-change: transform; }
+  .slot { transform-origin: 0 0; will-change: transform; display: none; }
+  .float { width: 200px; text-align: center; z-index: 3000; opacity: 0; font-size: 42px; font-weight: 900; pointer-events: none;
+    text-shadow: -2px -2px 0 var(--cyan), 2px 2px 0 rgba(254,44,85,.4); will-change: transform, opacity; }
+
+  /* HUD */
+  #hud { width: 834px; padding: 36px 48px 0; display: flex; flex-direction: column; gap: 22px; z-index: 3000; pointer-events: none; }
+  .row { display: flex; align-items: center; }
+  .logo { width: 44px; height: 44px; border-radius: 12px; background: var(--ink); display: flex; align-items: center; justify-content: center; box-shadow: -2px -2px 0 var(--cyan), 2px 2px 0 var(--accent); }
+  .logo div { width: 22px; height: 22px; border-radius: 50%; border: 3px solid #FFD23F; }
+  #pill { display: flex; align-items: center; gap: 10px; height: 52px; padding: 0 20px 0 10px; border-radius: 26px; background: #fff;
+    border: 1px solid var(--line); box-shadow: 0 4px 14px rgba(22,24,35,.06); transition: transform .18s ease-out; }
+  .num { font-variant-numeric: tabular-nums; }
+  .slot-dot { width: 30px; height: 30px; border-radius: 50%; border: 3px dashed #C9C9CD; background: #fff; }
+  .slot-dot.on { background: url('https://cdn.imagetourls.com/uploads/tyImg/PHwx455h.png') center/contain no-repeat !important; border: none !important; animation: cpop .35s ease-out; }
+
+  #hint { top: 1110px; width: 834px; display: flex; justify-content: center; z-index: 3000; pointer-events: none; }
+  #hint > div { display: flex; align-items: center; gap: 12px; padding: 12px 22px; border-radius: 30px; background: rgba(22,24,35,.82); color: #fff; font-size: 19px; font-weight: 700; }
+
+  /* Overlays */
+  .overlay { position: absolute; inset: 0; z-index: 5000; }
+  #attract { background: rgba(255,255,255,.38); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 28px; text-align: center; padding: 0 64px; }
+  #win { background: rgba(255,255,255,.5); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); }
+  .card { position: absolute; left: 117px; width: 600px; padding: 48px; border-radius: 28px; background: #fff;
+    box-shadow: 0 30px 80px rgba(22,24,35,.18); display: flex; flex-direction: column; gap: 26px; animation: cpop .45s ease-out; }
+  .glitch { font-weight: 900; text-shadow: var(--glitch); }
+  .btn-primary { width: 100%; height: 88px; border: 0; border-radius: 10px; background: var(--accent); color: #fff; font-size: 30px; font-weight: 800;
+    box-shadow: 0 12px 26px rgba(254,44,85,.3); }
+  .pulse { animation: cpulse 1.6s ease-in-out infinite; }
+  .muted { color: var(--muted); font-weight: 500; }
+  .sum { width: 100%; display: flex; flex-direction: column; gap: 14px; padding: 22px 24px; border-radius: 16px; background: var(--ground); }
+  .sum .line { display: flex; justify-content: space-between; font-size: 21px; font-weight: 600; color: #3A3B44; }
+  .sum .line b { color: var(--ink); font-weight: 800; }
+
+  .field { display: flex; align-items: center; gap: 8px; height: 80px; padding: 0 14px 0 22px; border-radius: 12px; border: 2px solid var(--line); background: var(--ground); }
+  .field.err { border-color: #C8102E; }
+  .field input { flex: 1; min-width: 0; height: 100%; border: 0; outline: none; background: transparent; font-family: inherit; font-size: 28px; font-weight: 700; color: var(--ink); }
+  .field input::placeholder { color: #A1A2A7; }
+  .paste { flex: none; height: 52px; padding: 0 18px; border: 0; border-radius: 8px; background: var(--ink); color: #fff; font-size: 20px; font-weight: 800;
+    display: flex; align-items: center; gap: 8px; box-shadow: -2px -2px 0 var(--cyan), 2px 2px 0 var(--accent); }
+
+  .center-col { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
+  .spinner { width: 110px; height: 110px; border-radius: 50%; border: 10px solid var(--line); border-top-color: var(--accent); border-right-color: var(--cyan); animation: cspin .8s linear infinite; }
+  .confetti { border-radius: 3px; will-change: transform; z-index: 1; }
+
+  @keyframes cflip { 0%,100% { transform: scaleX(1) } 50% { transform: scaleX(.16) } }
+  @keyframes cpulse { 0%,100% { transform: scale(1) } 50% { transform: scale(1.045) } }
+  @keyframes cpop { 0% { transform: scale(.6); opacity: 0 } 60% { transform: scale(1.08); opacity: 1 } 100% { transform: scale(1); opacity: 1 } }
+  @keyframes cspin { to { transform: rotate(360deg) } }
+  @keyframes cshine { 0% { transform: translateX(-140%) rotate(20deg) } 60%,100% { transform: translateX(160%) rotate(20deg) } }
+  @keyframes chint { 0%,100% { transform: translateX(-10px) } 50% { transform: translateX(10px) } }
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="stage">
+    <!-- Road -->
+    <div class="abs" style="top:250px;width:834px;height:1px;background:var(--line)"></div>
+    <svg class="abs" width="834" height="1194" viewBox="0 0 834 1194" aria-hidden="true">
+      <polygon points="342,250 492,250 917,1194 -83,1194" fill="#FFFFFF"/>
+      <line x1="342" y1="250" x2="-83" y2="1194" stroke="#25F4EE" stroke-width="7" stroke-linecap="round"/>
+      <line x1="492" y1="250" x2="917" y2="1194" stroke="#FE2C55" stroke-width="7" stroke-linecap="round"/>
+    </svg>
+    <div id="dashes"></div>
+    <div id="objs"></div>
+
+    <!-- Player -->
+    <div id="shadow" class="abs" style="width:120px;height:24px;border-radius:50%;background:rgba(22,24,35,.14);will-change:transform"></div>
+    <div id="player" class="abs" style="width:140px;height:140px;will-change:transform">
+      <div id="pinner" class="coin" style="width:140px;height:140px;border-width:7px;box-shadow:0 8px 0 #B87800;position:relative;overflow:hidden">
+        <div class="ring" style="border-width:6px"></div>
+        <div style="position:absolute;top:-20px;left:0;width:34px;height:180px;background:rgba(255,255,255,.55);animation:cshine 2.4s ease-in-out infinite"></div>
+      </div>
+    </div>
+    <div id="floats"></div>
+
+    <!-- HUD -->
+    <div id="hud" class="abs">
+      <div class="row" style="justify-content:space-between">
+        <div class="row" style="gap:12px">
+          <div class="logo"><div></div></div>
+          <div style="font-size:26px;font-weight:900;letter-spacing:-.5px">Coin Rush</div>
+        </div>
+        <div id="pill">
+          <div class="mini-coin" style="width:32px;height:32px"></div>
+          <div id="balance" class="num" style="font-size:24px;font-weight:800">1,200</div>
+        </div>
+      </div>
+      <div style="display:flex;flex-direction:column;align-items:center;gap:6px;text-align:center">
+        <div style="font-size:40px;font-weight:900;letter-spacing:-.8px">Catch the coins</div>
+        <div class="muted" style="font-size:22px">Don’t hit the blocks</div>
+      </div>
+      <div class="row" style="justify-content:center;gap:12px">
+        <div id="slots" class="row" style="gap:12px"></div>
+        <div id="coinsText" class="num" style="margin-left:6px;font-size:20px;font-weight:800">0/5</div>
+      </div>
+    </div>
+
+    <div id="hint" class="abs hidden">
+      <div>
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="animation:chint 1.2s ease-in-out infinite"><path d="M8 7l-5 5 5 5"/><path d="M16 7l5 5-5 5"/></svg>
+        Swipe to move · swipe up to jump
+      </div>
+    </div>
+
+    <!-- Start screen (game auto-plays behind the blur) -->
+    <div id="attract" class="overlay">
+      <div style="padding:8px 16px;border-radius:6px;background:var(--ink);color:#fff;font-size:16px;font-weight:700;letter-spacing:1.6px">MINI GAME</div>
+      <div class="flip" style="width:148px;height:148px;animation-duration:1.4s">
+        <div class="coin" style="width:148px;height:148px;border-width:8px;box-shadow:0 9px 0 #B87800"><div class="ring" style="border-width:7px"></div></div>
+      </div>
+      <div style="font-size:88px;line-height:1;font-weight:900;letter-spacing:-2px;text-shadow:-4px -3px 0 var(--cyan),4px 3px 0 var(--accent)">Coin Rush</div>
+      <div style="font-size:26px;font-weight:500;color:#3A3B44;max-width:520px;line-height:1.35">Catch 5 coins on the run and grab your reward</div>
+      <button id="startBtn" class="btn-primary pulse" style="margin-top:8px;width:380px;height:96px;font-size:34px">Start</button>
+      <div class="row" style="gap:18px;font-size:19px;font-weight:600;color:#3A3B44">
+        <div class="row" style="gap:8px">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#161823" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 7l-5 5 5 5"/><path d="M16 7l5 5-5 5"/></svg>
+          Swipe to switch lanes
+        </div>
+        <div style="width:5px;height:5px;border-radius:50%;background:#A1A2A7"></div>
+        <div class="row" style="gap:8px">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#161823" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 15l7-7 7 7"/></svg>
+          Swipe up to jump
+        </div>
+      </div>
+    </div>
+
+    <!-- Win flow -->
+    <div id="win" class="overlay hidden">
+      <div id="conf"></div>
+
+      <div id="stepReward" class="card" style="top:230px;align-items:center;text-align:center">
+        <div class="flip" style="width:132px;height:132px;animation-duration:1.4s">
+          <div class="coin" style="width:132px;height:132px;border-width:8px;box-shadow:0 8px 0 #B87800"><div class="ring"></div></div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:10px">
+          <div class="glitch" style="font-size:56px;line-height:1.05;letter-spacing:-1.4px">Congratulations!</div>
+          <div class="muted" style="font-size:22px">You caught all 5 coins</div>
+        </div>
+        <div class="sum">
+          <div class="line"><span>Coins collected</span><b>+50</b></div>
+          <div class="line"><span>Run bonus</span><b>+100</b></div>
+          <div style="height:1px;background:var(--line)"></div>
+          <div class="row" style="justify-content:space-between">
+            <div style="font-size:22px;font-weight:700">Your balance</div>
+            <div class="row" style="gap:10px">
+              <div class="mini-coin" style="width:34px;height:34px"></div>
+              <div id="rewardBalance" class="num" style="font-size:40px;font-weight:900">0</div>
+            </div>
+          </div>
+        </div>
+        <button id="claimBtn" class="btn-primary pulse">Claim coins</button>
+      </div>
+
+      <div id="stepNick" class="card hidden" style="top:260px;gap:28px">
+        <div style="display:flex;flex-direction:column;gap:10px;text-align:center">
+          <div class="glitch" style="font-size:44px;line-height:1.1;letter-spacing:-1px">Enter your nickname</div>
+          <div class="muted" style="font-size:21px">Your coins will be added to this name</div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:10px">
+          <label for="nick" style="font-size:18px;font-weight:700;color:#3A3B44">Nickname</label>
+          <div id="field" class="field">
+            <div style="font-size:28px;font-weight:800;color:var(--muted)">@</div>
+            <input id="nick" type="text" maxlength="16" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="yourname">
+            <button id="pasteBtn" class="paste" type="button" aria-label="Paste a random nickname">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8" y="3" width="8" height="4" rx="1"/><path d="M16 5h2a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h2"/></svg>
+              Paste
+            </button>
+          </div>
+          <div id="nickErr" class="hidden" style="font-size:18px;font-weight:600;color:#C8102E">Please enter a nickname</div>
+        </div>
+        <button id="continueBtn" class="btn-primary" type="button">Continue</button>
+      </div>
+
+      <div id="stepLoading" class="center-col hidden" style="gap:32px">
+        <div class="spinner"></div>
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <div style="font-size:32px;font-weight:900">Adding your coins…</div>
+          <div id="loadNick" class="muted" style="font-size:22px;font-weight:600">@</div>
+        </div>
+      </div>
+
+      <div id="stepCount" class="center-col hidden" style="gap:26px;z-index:10">
+        <div id="countNick" style="padding:10px 20px;border-radius:30px;background:var(--ink);color:#fff;font-size:22px;font-weight:800">@</div>
+        <div class="flip" style="width:190px;height:190px">
+          <div class="coin" style="width:190px;height:190px;border-width:10px;box-shadow:0 11px 0 #B87800"><div class="ring" style="border-width:9px"></div></div>
+        </div>
+        <div id="count" class="num" style="font-size:132px;line-height:1;font-weight:900;letter-spacing:-3px;text-shadow:-5px -4px 0 var(--cyan),5px 4px 0 var(--accent)">0</div>
+        <div style="font-size:28px;font-weight:800">+150 coins added to your balance</div>
+        <button id="againBtn" class="btn-primary hidden" style="margin-top:14px;width:380px;height:92px;animation:cpop .35s ease-out">Play again</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  // ---------- Config ----------
+  const START_BALANCE = 1200;
+  const COIN_VALUE = 10, RUN_BONUS = 100, GOAL = 5;
+  // True perspective: screen y = VY + K / d,  road width = WR * (y - VY)
+  const VY = 83.4, K = 1110.6, WR = 0.9004, CX = 417;
+  const DFAR = 6.67;     // spawn distance (horizon line)
+  const DP = 1.205;      // player distance
+  const SPEED = 2.6;     // world units per second
+  const JUMP_TIME = 0.65, JUMP_HEIGHT = 160;
+
+  const $ = (id) => document.getElementById(id);
+  const fmt = (n) => Math.round(n).toLocaleString('en-US');
+  const yOf = (d) => VY + K / d;
+
+  // ---------- Fit the stage to any screen (frameless) ----------
+  const stage = $('stage');
+  function fit() {
+    const s = Math.min(window.innerWidth / 834, window.innerHeight / 1194);
+    stage.style.transform = 'scale(' + s + ')';
+  }
+  window.addEventListener('resize', fit);
+  fit();
+
+  // ---------- Build element pools ----------
+  const dashEls = [];
+  for (let i = 0; i < 24; i++) {
+    const el = document.createElement('div');
+    el.className = 'abs dash';
+    $('dashes').appendChild(el);
+    dashEls.push(el);
+  }
+  const slotEls = [];
+  for (let i = 0; i < 18; i++) {
+    const el = document.createElement('div');
+    el.className = 'abs slot';
+    const coin = document.createElement('div');
+    coin.className = 'coin flip';
+    coin.style.cssText = 'width:104px;height:104px;display:none';
+    coin.innerHTML = '<div class="ring"></div>';
+    const block = document.createElement('div');
+    block.className = 'block';
+    block.style.display = 'none';
+    el.appendChild(coin); el.appendChild(block);
+    $('objs').appendChild(el);
+    slotEls.push({ el, coin, block, k: '' });
+  }
+  const floatEls = [];
+  for (let i = 0; i < 4; i++) {
+    const el = document.createElement('div');
+    el.className = 'abs float';
+    $('floats').appendChild(el);
+    floatEls.push(el);
+  }
+  const slotDots = [];
+  for (let i = 0; i < GOAL; i++) {
+    const el = document.createElement('div');
+    el.className = 'slot-dot';
+    $('slots').appendChild(el);
+    slotDots.push(el);
+  }
+  const CONF_COLORS = ['#FE2C55', '#25F4EE', '#FFD23F', '#161823'];
+  const confetti = [];
+  for (let i = 0; i < 44; i++) {
+    const c = {
+      x: Math.random() * 834, sp: 260 + Math.random() * 320, off: Math.random() * 1300,
+      sway: 20 + Math.random() * 40, ph: Math.random() * 6, rs: (Math.random() - 0.5) * 600,
+      el: document.createElement('div')
+    };
+    c.el.className = 'abs confetti';
+    c.el.style.cssText += ';width:' + Math.round(10 + Math.random() * 8) + 'px;height:' + Math.round(16 + Math.random() * 12) + 'px;background:' + CONF_COLORS[i % 4];
+    $('conf').appendChild(c.el);
+    confetti.push(c);
+  }
+
+  // ---------- State ----------
+  let mode = 'attract';            // attract | play | win
+  let winStep = 'reward';          // reward | nick | loading | count
+  let balance = START_BALANCE, runStart = balance;
+  let time = 0, playT = 0, winT = 0, loadT = 0, countT = 0;
+  let countFrom = 0, countTo = 0, countDone = false, nick = '';
+  let g = fresh();
+
+  function fresh() {
+    return { objs: [], lane: 1, px: 1, jumpT: 0, hurtT: 0, spawnT: 0.5, dashOff: 0, coins: 0, floats: [], fslot: 0, speed: SPEED };
+  }
+  const add = (kind, lane, d) => g.objs.push({ kind, lane, d });
+
+  // A coin sits right behind every obstacle
+  function pattern(d) {
+    const r = Math.random(), lane = Math.floor(Math.random() * 3);
+    const other = (lane + 1 + Math.floor(Math.random() * 2)) % 3;
+    const AFTER = 0.95;
+    if (r < 0.2) {
+      add('coin', lane, d); add('coin', lane, d + 0.45);
+    } else if (r < 0.55) {
+      add('block', lane, d); add('coin', lane, d + AFTER); add('coin', other, d);
+    } else if (r < 0.85) {
+      const free = Math.floor(Math.random() * 3);
+      for (let l = 0; l < 3; l++) if (l !== free) { add('block', l, d); add('coin', l, d + AFTER); }
+      add('coin', free, d);
+    } else {
+      add('block', lane, d); add('coin', lane, d + AFTER);
+      add('block', other, d + 1.4); add('coin', other, d + 1.4 + AFTER);
+    }
+  }
+
+  // First obstacle reaches the player in ~1 second
+  function seed(playing) {
+    const d1 = DP + SPEED * 1.0;
+    add('block', 1, d1);
+    add('coin', 1, d1 + 0.95);
+    add('coin', playing ? 0 : 2, d1);
+    pattern(d1 + 2.2);
+    g.spawnT = 0.3;
+  }
+  seed(false);
+
+  // ---------- Autopilot for the start-screen background ----------
+  function autopilot() {
+    let target = null, best = 99;
+    for (const o of g.objs) {
+      if (o.kind === 'coin' && o.d > DP + 0.08 && o.d < DP + 3 && o.d < best) { best = o.d; target = o.lane; }
+    }
+    const blocked = (l, d0) => g.objs.some((x) => x.kind === 'block' && x.lane === l && x.d > DP - 0.1 && x.d < d0);
+    if (target !== null && !blocked(target, best + 0.1)) g.lane = target;
+    for (const b of g.objs) {
+      if (b.kind === 'block' && b.lane === g.lane && b.d > DP + 0.05 && b.d < DP + 1.8) {
+        const free = [0, 1, 2].filter((l) => !blocked(l, b.d + 0.6));
+        if (free.length && b.d > DP + 0.7) {
+          g.lane = free.sort((a, c) => Math.abs(a - g.lane) - Math.abs(c - g.lane))[0];
+        } else if (g.jumpT <= 0 && b.d < DP + 0.75) g.jumpT = JUMP_TIME;
+      }
+    }
+  }
+
+  // ---------- UI helpers ----------
+  const show = (id, on) => $(id).classList.toggle('hidden', !on);
+  function pillPop() {
+    const p = $('pill');
+    p.style.transform = 'scale(1.15)';
+    setTimeout(() => { p.style.transform = 'scale(1)'; }, 160);
+  }
+  function renderHud() {
+    $('balance').textContent = fmt(balance);
+    $('coinsText').textContent = g.coins + '/' + GOAL;
+    slotDots.forEach((el, i) => el.classList.toggle('on', i < g.coins));
+  }
+  function renderScreens() {
+    show('attract', mode === 'attract');
+    show('win', mode === 'win');
+    show('stepReward', winStep === 'reward');
+    show('stepNick', winStep === 'nick');
+    show('stepLoading', winStep === 'loading');
+    show('stepCount', winStep === 'count');
+    show('conf', winStep === 'count');
+    show('againBtn', countDone);
+    $('rewardBalance').textContent = fmt(balance);
+  }
+  function addFloat(text, color) {
+    const w = WR * K / DP;
+    g.floats.push({ text, color, x: CX + (g.px - 1) * w / 3, t: 0, slot: g.fslot });
+    g.fslot = (g.fslot + 1) % floatEls.length;
+    if (g.floats.length > floatEls.length) g.floats.shift();
+  }
+
+  // ---------- Actions ----------
+  function start() {
+    g = fresh();
+    seed(true);
+    mode = 'play'; winStep = 'reward'; countDone = false;
+    playT = 0; runStart = balance;
+    show('hint', true);
+    renderHud(); renderScreens();
+  }
+  $('startBtn').addEventListener('click', start);
+  $('againBtn').addEventListener('click', start);
+
+  $('claimBtn').addEventListener('click', () => {
+    winStep = 'nick';
+    $('nick').value = '';
+    $('field').classList.remove('err'); show('nickErr', false);
+    renderScreens();
+    setTimeout(() => $('nick').focus(), 50);
+  });
+
+  const ADJ = ['lucky', 'swift', 'golden', 'cosmic', 'neon', 'turbo', 'happy', 'shiny', 'rapid', 'pixel', 'chill', 'mega'];
+  const NOUN = ['fox', 'runner', 'coin', 'tiger', 'panda', 'star', 'rocket', 'wolf', 'ninja', 'comet', 'koala', 'hawk'];
+  $('pasteBtn').addEventListener('click', () => {
+    const r = (a) => a[Math.floor(Math.random() * a.length)];
+    $('nick').value = r(ADJ) + '_' + r(NOUN) + Math.floor(10 + Math.random() * 990);
+    $('field').classList.remove('err'); show('nickErr', false);
+  });
+  $('nick').addEventListener('input', () => { $('field').classList.remove('err'); show('nickErr', false); });
+  $('nick').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); submitNick(); } });
+  $('continueBtn').addEventListener('click', submitNick);
+
+  function submitNick() {
+    nick = $('nick').value.replace(/^@+/, '').trim().slice(0, 16);
+    if (!nick) { $('field').classList.add('err'); show('nickErr', true); return; }
+    $('nick').blur();
+    $('loadNick').textContent = '@' + nick;
+    $('countNick').textContent = '@' + nick;
+    winStep = 'loading'; loadT = 0;
+    renderScreens();
+  }
+
+  // ---------- Swipe controls ----------
+  let ptr = null;
+  stage.addEventListener('pointerdown', (e) => { ptr = { x: e.clientX, y: e.clientY, done: false }; });
+  stage.addEventListener('pointermove', swipe);
+  stage.addEventListener('pointerup', (e) => { swipe(e); ptr = null; });
+  stage.addEventListener('pointercancel', () => { ptr = null; });
+  function swipe(e) {
+    if (!ptr || ptr.done || mode !== 'play') return;
+    const dx = e.clientX - ptr.x, dy = e.clientY - ptr.y, T = 34;
+    if (Math.abs(dx) > T && Math.abs(dx) > Math.abs(dy)) {
+      g.lane = Math.max(0, Math.min(2, g.lane + (dx > 0 ? 1 : -1)));
+      ptr.x = e.clientX; ptr.y = e.clientY;          // keep swiping to cross two lanes
+    } else if (dy < -T && Math.abs(dy) > Math.abs(dx)) {
+      if (g.jumpT <= 0) g.jumpT = JUMP_TIME;
+      ptr.done = true;
+    }
+  }
+  // Keyboard for desktop testing
+  window.addEventListener('keydown', (e) => {
+    if (mode !== 'play') return;
+    if (e.key === 'ArrowLeft') g.lane = Math.max(0, g.lane - 1);
+    if (e.key === 'ArrowRight') g.lane = Math.min(2, g.lane + 1);
+    if ((e.key === 'ArrowUp' || e.key === ' ') && g.jumpT <= 0) g.jumpT = JUMP_TIME;
+  });
+
+  // ---------- Game loop ----------
+  function update(dt) {
+    time += dt;
+    if (mode === 'win') { g.speed = Math.max(0, g.speed - dt * 3); winT += dt; } else g.speed = SPEED;
+
+    if (mode === 'play') {
+      playT += dt;
+      if (playT > 2.5 || g.coins > 0) show('hint', false);
+    }
+
+    if (mode === 'win' && winStep === 'loading') {
+      loadT += dt;
+      if (loadT >= 1) {
+        countFrom = runStart;
+        balance += RUN_BONUS;
+        countTo = balance;
+        winStep = 'count'; countT = 0; countDone = false; winT = 0;
+        $('count').textContent = fmt(countFrom);
+        renderHud(); renderScreens();
+      }
+    }
+    if (mode === 'win' && winStep === 'count' && !countDone) {
+      countT += dt;
+      const k = Math.min(1, countT / 2.4), e = 1 - Math.pow(1 - k, 3);
+      $('count').textContent = fmt(countFrom + (countTo - countFrom) * e);
+      if (k >= 1) { countDone = true; renderScreens(); }
+    }
+
+    const mv = dt * g.speed;
+    g.dashOff = (g.dashOff + mv) % 0.6;
+    for (const o of g.objs) o.d -= mv;
+    g.objs = g.objs.filter((o) => o.d > 0.75 && !o.gone);
+
+    if (mode === 'attract' || mode === 'play') {
+      g.spawnT -= dt;
+      if (g.spawnT <= 0) { pattern(DFAR); g.spawnT = 0.7 + Math.random() * 0.3; }
+    }
+    if (mode === 'attract') autopilot();
+
+    g.px += (g.lane - g.px) * Math.min(1, dt * 14);
+    if (g.jumpT > 0) g.jumpT = Math.max(0, g.jumpT - dt);
+    if (g.hurtT > 0) g.hurtT = Math.max(0, g.hurtT - dt);
+
+    const jumpH = g.jumpT > 0 ? Math.sin(Math.PI * (1 - g.jumpT / JUMP_TIME)) * JUMP_HEIGHT : 0;
+    const myLane = Math.round(g.px);
+    if (mode === 'attract' || mode === 'play') {
+      for (const o of g.objs) {
+        if (o.lane !== myLane || Math.abs(o.d - DP) > 0.07 || o.hit) continue;
+        if (o.kind === 'coin') {
+          o.hit = true; o.gone = true;
+          addFloat('+' + COIN_VALUE, '#161823');
+          if (mode === 'play') {
+            g.coins += 1; balance += COIN_VALUE; pillPop(); renderHud();
+            if (g.coins >= GOAL) { mode = 'win'; winStep = 'reward'; winT = 0; show('hint', false); renderScreens(); }
+          }
+        } else if (o.kind === 'block' && jumpH < 50) {
+          o.hit = true;
+          if (g.hurtT <= 0) { g.hurtT = 1; if (mode === 'play') addFloat('Oops!', '#FE2C55'); }
+        }
+      }
+    }
+    for (const f of g.floats) f.t += dt;
+    g.floats = g.floats.filter((f) => f.t < 0.9);
+  }
+
+  function draw() {
+    // Lane dashes: evenly spaced in world space
+    const per = 12;
+    dashEls.forEach((el, i) => {
+      const side = i < per ? -1 : 1;
+      const dA = 0.9 + (i % per) * 0.6 - g.dashOff, dB = dA + 0.28;
+      if (dA < 0.85 || dA > DFAR) { el.style.transform = 'translate3d(-100px,0,0)'; return; }
+      const yA = yOf(dA), yB = Math.max(250, yOf(Math.min(dB, DFAR)));
+      const yc = (yA + yB) / 2, len = Math.max(1, yA - yB), wc = WR * (yc - VY);
+      const x = CX + side * wc / 6, th = Math.max(1.5, wc * 0.011);
+      el.style.transform = 'translate3d(' + (x - 4.5).toFixed(1) + 'px,' + (yc - 37).toFixed(1) + 'px,0) rotate(' + (side < 0 ? 8.53 : -8.53) + 'deg) scale(' + (th / 9).toFixed(3) + ',' + (len / 74).toFixed(3) + ')';
+    });
+
+    // Coins and blocks (far to near)
+    const vis = g.objs.filter((o) => o.d <= 6.7).sort((a, b) => b.d - a.d);
+    slotEls.forEach((S, n) => {
+      const o = vis[n];
+      if (!o) { if (S.k) { S.el.style.display = 'none'; S.k = ''; } return; }
+      if (S.k !== o.kind) {
+        S.el.style.display = 'block';
+        S.coin.style.display = o.kind === 'coin' ? 'flex' : 'none';
+        S.block.style.display = o.kind === 'block' ? 'block' : 'none';
+        S.k = o.kind;
+      }
+      const y = yOf(o.d), w = WR * (y - VY), ox = CX + (o.lane - 1) * w / 3;
+      let sc, l, t;
+      if (o.kind === 'coin') { sc = w / 980; l = ox - 52 * sc; t = y - 112 * sc; }
+      else { sc = (w / 3 * 0.8) / 226; l = ox - 113 * sc; t = y - 108 * sc; }
+      S.el.style.zIndex = String(Math.round(2000 - o.d * 100));
+      S.el.style.transform = 'translate3d(' + l.toFixed(1) + 'px,' + t.toFixed(1) + 'px,0) scale(' + sc.toFixed(3) + ')';
+    });
+
+    // Player
+    const py = yOf(DP), pw = WR * (py - VY), px = CX + (g.px - 1) * pw / 3;
+    const jumpH = g.jumpT > 0 ? Math.sin(Math.PI * (1 - g.jumpT / JUMP_TIME)) * JUMP_HEIGHT : 0;
+    const bob = jumpH > 0 ? 0 : -Math.abs(Math.sin(time * 9)) * 6;
+    const player = $('player'), shadow = $('shadow');
+    player.style.zIndex = String(Math.round(2000 - DP * 100) + 1);
+    shadow.style.zIndex = String(Math.round(2000 - DP * 100));
+    player.style.transform = 'translate3d(' + (px - 70).toFixed(1) + 'px,' + (py - 140 - jumpH + bob).toFixed(1) + 'px,0)';
+    player.style.opacity = g.hurtT > 0 ? (Math.floor(g.hurtT * 14) % 2 ? '0.3' : '1') : '1';
+    $('pinner').style.transform = 'scaleX(' + (0.9 + 0.1 * Math.cos(time * 7)).toFixed(3) + ')';
+    shadow.style.transform = 'translate3d(' + (px - 60).toFixed(1) + 'px,' + (py - 14).toFixed(1) + 'px,0) scale(' + (1 - jumpH / 340).toFixed(3) + ')';
+
+    // Floating "+10" / "Oops!"
+    floatEls.forEach((el, i) => {
+      const f = g.floats.find((x) => x.slot === i);
+      if (!f) { el.style.opacity = '0'; return; }
+      if (el.textContent !== f.text) el.textContent = f.text;
+      el.style.color = f.color;
+      el.style.opacity = (1 - f.t / 0.9).toFixed(2);
+      el.style.transform = 'translate3d(' + (f.x - 100).toFixed(1) + 'px,' + (py - 210 - f.t * 110).toFixed(1) + 'px,0)';
+    });
+
+    // Confetti during the coin count-up
+    if (mode === 'win' && winStep === 'count') {
+      confetti.forEach((c) => {
+        const cy = ((winT * c.sp + c.off) % 1320) - 80;
+        const cx = c.x + Math.sin(winT * 2 + c.ph) * c.sway;
+        c.el.style.transform = 'translate3d(' + cx.toFixed(1) + 'px,' + cy.toFixed(1) + 'px,0) rotate(' + (Math.round(winT * c.rs) % 360) + 'deg)';
+      });
+    }
+  }
+
+  let last = performance.now();
+  function frame(now) {
+    const dt = Math.min(0.04, (now - last) / 1000);
+    last = now;
+    update(dt);
+    draw();
+    requestAnimationFrame(frame);
+  }
+  renderHud(); renderScreens();
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
